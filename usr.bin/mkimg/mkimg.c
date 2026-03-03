@@ -49,17 +49,20 @@
 #define	LONGOPT_SCHEMES		0x01000002
 #define	LONGOPT_VERSION		0x01000003
 #define	LONGOPT_CAPACITY	0x01000004
+#define LONGOPT_ALIGN   0x01000005
 
 static struct option longopts[] = {
 	{ "formats", no_argument, NULL, LONGOPT_FORMATS },
 	{ "schemes", no_argument, NULL, LONGOPT_SCHEMES },
 	{ "version", no_argument, NULL, LONGOPT_VERSION },
 	{ "capacity", required_argument, NULL, LONGOPT_CAPACITY },
+	{ "align", required_argument, NULL, LONGOPT_ALIGN },
 	{ NULL, 0, NULL, 0 }
 };
 
 static uint64_t min_capacity = 0;
 static uint64_t max_capacity = 0;
+static uint64_t alignment = 0;
 
 /* Fixed timestamp for reproducible builds. */
 time_t timestamp = (time_t)-1;
@@ -187,6 +190,7 @@ usage(const char *why)
 	fprintf(stderr, "\t\t<type>\t-  scheme neutral partition type\n");
 	fprintf(stderr, "\t\t<label>\t-  optional scheme-dependent partition "
 	    "label\n");
+	fprintf(stderr, "\t--align <size>\t-  align partition starts to boundary\n");
 
 	exit(EX_USAGE);
 }
@@ -488,6 +492,13 @@ mkimg(void)
 		else
 			block = scheme_metadata(SCHEME_META_PART_BEFORE,
 			    block + blkoffset);
+		if (alignment > 0) {
+			lba_t align_blocks = alignment / secsz;
+			lba_t rem = block % align_blocks;
+			if (rem != 0)
+				block += align_blocks - rem;
+		}
+		
 		part->block = block;
 
 		if (verbose)
@@ -676,6 +687,13 @@ main(int argc, char *argv[])
 			print_version();
 			exit(EX_OK);
 			/*NOTREACHED*/
+		case LONGOPT_ALIGN:
+			error = parse_uint64(&alignment, 512, INT64_MAX, optarg);
+			if (error == 0 && !pwr_of_two((u_int)alignment))
+				error = EINVAL;
+			if (error)
+				errc(EX_DATAERR, error, "alignment");
+			break;
 		case LONGOPT_CAPACITY:
 			error = parse_uint64(&min_capacity, 1, INT64_MAX, optarg);
 			if (error)
@@ -702,6 +720,9 @@ main(int argc, char *argv[])
 			    "be smaller than the sector size");
 		blksz = secsz;
 	}
+
+	if (alignment > 0 && alignment < secsz)
+		errx(EX_DATAERR, "alignment cannot be smaller than sector size %u", secsz);
 
 	if (secsz > scheme_max_secsz())
 		errx(EX_DATAERR, "maximum sector size supported is %u; "
