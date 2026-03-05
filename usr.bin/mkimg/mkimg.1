@@ -38,6 +38,7 @@
 .Op Fl c Ar min_capacity
 .Op Fl C Ar max_capacity
 .Op Fl -capacity Ar capacity
+.Op Fl -align Ar align
 .Op Fl f Ar format
 .Op Fl h
 .Op Fl o Ar outfile
@@ -138,6 +139,21 @@ The
 .Fl -capacity
 option is a shorthand to specify the minimum and maximum capacity at the
 same time.
+.Pp
+The
+.Fl -align
+option aligns the start of each partition to the specified boundary.
+The
+.Ar align
+argument follows the same numeric conventions as
+.Cm size
+and accepts SI suffixes (K, M, G).
+Common values are
+.Ar 4K
+for Advanced Format drives and
+.Ar 1M
+which is the default alignment used by most modern partitioning tools.
+When not specified, partitions are aligned to the logical sector size.
 .Pp
 The
 .Fl t
@@ -407,6 +423,13 @@ utility as follows:
 .Dl % mkimg -s bsd -b /boot/boot -p freebsd-ufs:=root-file-system.ufs \
 -p freebsd-swap::20M -p- -p- -p- -p- -p freebsd-ufs:=usr-file-system.ufs \
 -o bsd.img
+.Pp
+To create a GPT image with partitions aligned to 1\~MiB boundaries,
+suitable for use on Advanced Format drives or SSDs, run the
+.Nm
+utility as follows:
+.Dl % mkimg -s gpt --align=1M -p freebsd-ufs:=root-file-system.ufs \
+-p freebsd-swap::1G -o gpt-aligned.img
 .Pp
 For partitioning schemes that feature partition labels, the
 .Nm
